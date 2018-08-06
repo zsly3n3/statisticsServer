@@ -8,10 +8,10 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-const DB_IP = "192.168.6.150:3306"
+const DB_IP = "47.105.45.83:3306"
 const DB_Name = "statistics"
 const DB_UserName = "root"
-const DB_Pwd = "1234s6"
+const DB_Pwd = "zsly3n@S"
 
 type DBHandler struct {
 	 dbEngine *xorm.Engine
