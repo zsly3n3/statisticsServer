@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/zsly3n3/statisticsServer/db"
+	//"github.com/zsly3n3/statisticsServer/log"
 )
 
 var dbHandler *db.DBHandler
@@ -13,14 +14,20 @@ func setupRouter() *gin.Engine {
 		c.JSON(200,dbHandler.GetLeague())
 	})
 	r.POST("/login", func(c *gin.Context) {
-		name := c.PostForm("name")
-		pwd := c.PostForm("pwd")
-		dbHandler.Login(name,pwd)
-		c.JSON(200, gin.H{
-			// "status":  "posted",
-			// "message": message,
-			// "nick":    nick,
-		})
+		name := c.Request.PostFormValue("name")
+		pwd :=c.Request.PostFormValue("pwd")
+		tf,level:=dbHandler.Login(name,pwd)
+		if tf{
+			c.JSON(200, gin.H{
+				"code":0,
+				"level": level,
+			})
+		}else{
+			c.JSON(200, gin.H{
+				"code":-1,
+				"message":"login falied",
+			})
+		}
 	})
 	return r
 }

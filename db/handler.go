@@ -105,12 +105,12 @@ func createLoginData(adminLevelID int,guestLevelID int)[]datastruct.Login{
 	admin:= datastruct.Login{
 		LoginName:"admin",
 		Password:"123@s678",
-		RoleID:adminLevelID,
+		RoleId:adminLevelID,
 	}
 	guest:= datastruct.Login{
 		LoginName:"guest",
 		Password:"1234s6",
-		RoleID:guestLevelID,
+		RoleId:guestLevelID,
 	}
 	return []datastruct.Login{admin,guest}
 }
@@ -121,6 +121,20 @@ func (handler *DBHandler)GetLeague()[]datastruct.League{
 	return league
 }
 
-func (handler *DBHandler)Login(name string,pwd string){
-	  
+type tmpData struct {
+	Level int
+	Password string
+}
+
+func (handler *DBHandler)Login(name string,pwd string)(bool,int){
+	tmp:=new(tmpData)
+	sql:="select level,password from login join role on role.id = login.role_id where login_name='"+name+"'"
+	handler.dbEngine.Sql(sql).Get(tmp)
+	tf:=false
+	level:=-1
+	if tmp.Password == pwd{
+	   tf = true
+	   level = tmp.Level
+	}
+	return tf,level
 }

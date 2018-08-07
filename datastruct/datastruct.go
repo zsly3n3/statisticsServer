@@ -22,7 +22,7 @@ type Login struct {
     Id       int       `xorm:"not null pk autoincr INT(11)"`
 	LoginName string    `xorm:"VARCHAR(64) not null"`
 	Password string    `xorm:"VARCHAR(128) not null"`
-	RoleID int    `xorm:"INT(11) not null"` //权限id
+	RoleId int    `xorm:"INT(11) not null"` //权限id
 	CreatedAt time.Time `xorm:"created"`
 }
 
