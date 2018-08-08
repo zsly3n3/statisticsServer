@@ -43,10 +43,15 @@ func errhandle(err error){
 func resetDB(engine *xorm.Engine){
 	login:=&datastruct.Login{}
     league:=&datastruct.League{}
-    role:=&datastruct.Role{}
-	err:=engine.DropTables(login,league,role)
+	role:=&datastruct.Role{}
+	gameId:=&datastruct.GameId{}
+	thirdPartyId:=&datastruct.ThirdPartyId{}
+	referrer:=&datastruct.Referrer{}
+	tg:=&datastruct.ThirdPartyId_1_n_gameId{}
+	rg:=&datastruct.Referrer_1_n_gameId{}
+	err:=engine.DropTables(login,league,role,gameId,thirdPartyId,referrer,tg,rg)
     errhandle(err)
-	err=engine.CreateTables(login,league,role)
+	err=engine.CreateTables(login,league,role,gameId,thirdPartyId,referrer,tg,rg)
     errhandle(err)
 }
 
@@ -126,15 +131,146 @@ type tmpData struct {
 	Password string
 }
 
-func (handler *DBHandler)Login(name string,pwd string)(bool,int){
+func (handler *DBHandler)Login(name string,pwd string)(datastruct.CodeType,int){
 	tmp:=new(tmpData)
+	code:= datastruct.NULLError
+	if name == datastruct.NULLSTRING || pwd == datastruct.NULLSTRING{
+		code = datastruct.ParamError
+	}
 	sql:="select level,password from login join role on role.id = login.role_id where login_name='"+name+"'"
 	handler.dbEngine.Sql(sql).Get(tmp)
-	tf:=false
 	level:=-1
 	if tmp.Password == pwd{
-	   tf = true
 	   level = tmp.Level
+	}else{
+	   code = datastruct.LoginFailed
 	}
-	return tf,level
+	return code,level
+}
+
+func (handler *DBHandler)InsertGidData(gids []string,tid string,rid string)datastruct.CodeType{
+	code:= datastruct.NULLError
+	if len(gids) <= 0 || (tid == datastruct.NULLSTRING && rid == datastruct.NULLSTRING){
+	   code = datastruct.ParamError
+	}else{
+		engine:=handler.dbEngine
+		session := engine.NewSession()
+		defer session.Close()
+		session.Begin()
+		tid_id:=datastruct.NULLID
+		rid_id:=datastruct.NULLID
+		if tid != datastruct.NULLSTRING{
+			var tmp_tid datastruct.ThirdPartyId
+			tmp_tid.Identity = tid
+			has, err:= session.Where("identity=?",tid).Get(&tmp_tid)
+			if err != nil{
+				rollback(err.Error(),session)
+				return datastruct.DBSessionGetError 
+			}
+			if !has{
+				_, err = session.Insert(&tmp_tid) 
+				if err != nil{
+					rollback(err.Error(),session)
+					return datastruct.DBSessionInsertError
+				}
+			}
+			tid_id = tmp_tid.Id
+		}
+		if rid != datastruct.NULLSTRING{
+			var tmp_rid datastruct.Referrer
+			tmp_rid.Identity = rid
+			has, err:= session.Where("identity=?",rid).Get(&tmp_rid)
+			if err != nil{
+				rollback(err.Error(),session)
+				return datastruct.DBSessionGetError 
+			}
+			if !has{
+				_, err = session.Insert(&tmp_rid) 
+				if err != nil{
+					rollback(err.Error(),session)
+					return datastruct.DBSessionInsertError
+				}
+			}
+			rid_id = tmp_rid.Id
+		}
+		for _,v:=range gids{
+			code = insertGid(v,tid_id,rid_id,session)
+			if code != datastruct.NULLError{
+			   session.Rollback()	
+			   return code
+			}
+		}
+		err:=session.Commit()
+		if err != nil{
+			log.Debug("session commit err:%v",err.Error())
+			return datastruct.DBSessionCommitError
+		}
+	}
+	return code
+}
+
+func insertGid(gid string,tid_id int,rid_id int,session *xorm.Session)datastruct.CodeType{
+	code:= datastruct.NULLError
+	if gid == datastruct.NULLSTRING{
+	   return datastruct.ParamError
+	}
+	var tmp_gid datastruct.GameId
+	tmp_gid.Identity = gid
+	has, err:= session.Where("identity=?",gid).Get(&tmp_gid)
+	if err != nil{
+	   log.Debug("err:%v",err.Error())
+	   return datastruct.DBSessionGetError 
+	}
+	if has{
+		gid_id_str:=fmt.Sprintf("%d",tmp_gid.Id)
+		if tid_id != datastruct.NULLID{
+		   sql:="delete from third_party_id_1_n_game_id where g_id ="+gid_id_str
+		   _,err = session.Exec(sql)
+		   if err != nil{
+			log.Debug("err:%v",err.Error())
+			return datastruct.DBSessionExecError
+		   }
+		}
+		if rid_id != datastruct.NULLID{
+			sql:="delete from referrer_1_n_game_id where g_id ="+gid_id_str
+			_,err = session.Exec(sql)
+			if err != nil{
+			 log.Debug("err:%v",err.Error())
+			 return datastruct.DBSessionExecError
+			}
+		}
+	}else{
+		_, err = session.Insert(&tmp_gid) 
+		if err != nil{
+			log.Debug("err:%v",err.Error())
+			return datastruct.DBSessionInsertError
+		}
+	}
+	gid_id:=tmp_gid.Id
+	if tid_id != datastruct.NULLID{
+	   var t_1_n_g datastruct.ThirdPartyId_1_n_gameId
+	   t_1_n_g.GId = gid_id
+	   t_1_n_g.TId = tid_id
+	   _, err = session.Insert(&t_1_n_g) 
+	   if err != nil{
+		   log.Debug("err:%v",err.Error())
+		   return datastruct.DBSessionInsertError
+	   }
+	}
+	if rid_id != datastruct.NULLID{
+		var r_1_n_g datastruct.Referrer_1_n_gameId
+		r_1_n_g.GId = gid_id
+		r_1_n_g.RId = rid_id
+		_, err = session.Insert(&r_1_n_g) 
+		if err != nil{
+			log.Debug("err:%v",err.Error())
+			return datastruct.DBSessionInsertError
+		}
+	}
+	return code
+}
+
+func rollback(err_str string,session *xorm.Session){
+	 log.Debug("will rollback,err_str:%v",err_str)
+	 session.Rollback()
 }
