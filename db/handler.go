@@ -122,5 +122,5 @@ func (handler *DBHandler)GetLeague()[]datastruct.League{
 }
 
 func (handler *DBHandler)Login(name string,pwd string){
-	  
+	 //handler.dbEngine.Find()
 }
