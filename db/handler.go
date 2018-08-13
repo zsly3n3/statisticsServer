@@ -277,9 +277,7 @@ func rollback(err_str string,session *xorm.Session){
 type tmpGIdentity struct {
 	Identity string
 }
-type tmpTId struct {
-	TId int
-}
+
 type tmpRId struct {
 	RId int
 }
@@ -288,35 +286,9 @@ func (handler *DBHandler)QueryWithGid(name string)*datastruct.PostGidTidRidBody{
 	var gid datastruct.GameId
 	has, _:= engine.Where("identity=?",name).Get(&gid)
 	if has{
-	   rs:=new(datastruct.PostGidTidRidBody)
-	   sql:="select t_id from game_id join third_party_id_1_n_game_id on third_party_id_1_n_game_id.g_id = game_id.id where identity='"+name+"'"
-	   var tid tmpTId
-	   has_tid,_:=engine.Sql(sql).Get(&tid)
-	   if has_tid{
-		  var tid_data datastruct.ThirdPartyId
-		  engine.Where("id=?",tid.TId).Get(&tid_data)
-		  rs.Tid = tid_data.Identity
-		  var identitys []tmpGIdentity
-		  sql="select game_id.identity from game_id join third_party_id_1_n_game_id on third_party_id_1_n_game_id.g_id = game_id.id where t_id="+fmt.Sprintf("%d",tid_data.Id)
-		  engine.Sql(sql).Find(&identitys)
-		  gids:=make([]string,0,len(identitys))
-		  for _,v :=range gids {
-			gids = append(gids,v)
-		  }
-		  rs.Gids = gids
-
-          var rid tmpRId
-		  sql="select r_id from referrer join third_party_id_1_1_referrer_id on third_party_id_1_1_referrer_id.r_id = referrer.id where t_id="+fmt.Sprintf("%d",tid_data.Id)
-		  has_rid, _:=engine.Sql(sql).Get(&rid)
-		  if has_rid{
-			var r_data datastruct.Referrer
-			engine.Where("id=?",rid.RId).Get(&r_data)
-			rs.Rid = r_data.Identity
-		  }
-		  return rs
-	   }
-	   return nil
-	} 
+	   sql:="select third_party_id.id,third_party_id.identity from game_id join third_party_id_1_n_game_id on third_party_id_1_n_game_id.g_id = game_id.id join third_party_id on third_party_id_1_n_game_id.t_id = third_party_id.id where game_id.identity='"+name+"'"
+	   return getGidTidRidData(sql,engine)
+	}
 	return nil
 }
 func (handler *DBHandler)QueryWithTid(tid string){
@@ -324,4 +296,32 @@ func (handler *DBHandler)QueryWithTid(tid string){
 }
 func (handler *DBHandler)QueryWithRid(rid string){
 	   
+}
+
+func getGidTidRidData(sql string,engine *xorm.Engine)*datastruct.PostGidTidRidBody{
+	var tid datastruct.ThirdPartyId
+	has_tid,_:=engine.Sql(sql).Get(&tid)
+	if has_tid{
+	   rs:=new(datastruct.PostGidTidRidBody)
+	   rs.Tid = tid.Identity
+	   var identitys []tmpGIdentity
+	   sql="select game_id.identity from game_id join third_party_id_1_n_game_id on third_party_id_1_n_game_id.g_id = game_id.id where t_id="+fmt.Sprintf("%d",tid.Id)
+	   engine.Sql(sql).Find(&identitys)
+	   gids:=make([]string,0,len(identitys))
+	   for _,v :=range gids {
+		 gids = append(gids,v)
+	   }
+	   rs.Gids = gids
+
+	   var rid tmpRId
+	   sql="select r_id from referrer join third_party_id_1_1_referrer_id on third_party_id_1_1_referrer_id.r_id = referrer.id where t_id="+fmt.Sprintf("%d",tid.Id)
+	   has_rid, _:=engine.Sql(sql).Get(&rid)
+	   if has_rid{
+		 var r_data datastruct.Referrer
+		 engine.Where("id=?",rid.RId).Get(&r_data)
+		 rs.Rid = r_data.Identity
+	   }
+	   return rs
+	}
+	return nil
 }
