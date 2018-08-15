@@ -9,8 +9,17 @@ import (
 
 var dbHandler *db.DBHandler
 
+func Cors() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Add("Access-Control-Allow-Origin", "*")
+		c.Next()
+	}
+}
 func setupRouter() *gin.Engine {
 	r := gin.Default()
+
+	r.Use(Cors())
+
 	r.GET("/getleague", func(c *gin.Context) {
 		c.JSON(200,dbHandler.GetLeague())
 	})
