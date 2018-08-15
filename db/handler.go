@@ -8,10 +8,10 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-const DB_IP = "47.105.45.83:3306"
+const DB_IP = "14.29.123.151:3306"
 const DB_Name = "statistics"
 const DB_UserName = "root"
-const DB_Pwd = "zsly3n@S"
+const DB_Pwd = "Zsly2018!"
 
 type DBHandler struct {
 	 dbEngine *xorm.Engine
@@ -274,54 +274,70 @@ func rollback(err_str string,session *xorm.Session){
 	 session.Rollback()
 }
 
-type tmpGIdentity struct {
-	Identity string
-}
-
-type tmpRId struct {
-	RId int
-}
 func (handler *DBHandler)QueryWithGid(name string)*datastruct.PostGidTidRidBody{
 	engine:=handler.dbEngine
 	var gid datastruct.GameId
 	has, _:= engine.Where("identity=?",name).Get(&gid)
 	if has{
-	   sql:="select third_party_id.id,third_party_id.identity from game_id join third_party_id_1_n_game_id on third_party_id_1_n_game_id.g_id = game_id.id join third_party_id on third_party_id_1_n_game_id.t_id = third_party_id.id where game_id.identity='"+name+"'"
-	   return getGidTidRidData(sql,engine)
+	   sql:="select third_party_id.id,third_party_id.identity from game_id join third_party_id_1_n_game_id on third_party_id_1_n_game_id.g_id = game_id.id join third_party_id on third_party_id_1_n_game_id.t_id = third_party_id.id where game_id.id="+fmt.Sprintf("%d",gid.Id)
+	   var tid datastruct.ThirdPartyId
+	   has_tid,_:=engine.Sql(sql).Get(&tid)
+	   if has_tid{
+		  return getGidTidRidData(&tid,engine,datastruct.NULLSTRING)
+	   }  
+	   return nil
 	}
 	return nil
 }
-func (handler *DBHandler)QueryWithTid(tid string){
-	 
-}
-func (handler *DBHandler)QueryWithRid(rid string){
-	   
+func (handler *DBHandler)QueryWithTid(t_name string)*datastruct.PostGidTidRidBody{
+	engine:=handler.dbEngine
+	var tid datastruct.ThirdPartyId
+	has, _:= engine.Where("identity=?",t_name).Get(&tid)
+	if has{
+	   return getGidTidRidData(&tid,engine,datastruct.NULLSTRING)
+	}
+	return nil
 }
 
-func getGidTidRidData(sql string,engine *xorm.Engine)*datastruct.PostGidTidRidBody{
-	var tid datastruct.ThirdPartyId
-	has_tid,_:=engine.Sql(sql).Get(&tid)
-	if has_tid{
+func (handler *DBHandler)QueryWithRid(r_name string)*datastruct.PostGidTidRidBody{
+	engine:=handler.dbEngine
+	var rid datastruct.Referrer
+	has, _:= engine.Where("identity=?",r_name).Get(&rid)
+	if has{
+	   sql:="select third_party_id.id,third_party_id.identity from third_party_id join third_party_id_1_1_referrer_id on third_party_id_1_1_referrer_id.t_id = third_party_id.id where r_id="+fmt.Sprintf("%d",rid.Id)
+	   var tid datastruct.ThirdPartyId
+	   has_tid,_:=engine.Sql(sql).Get(&tid)
+	   if has_tid{
+		  return getGidTidRidData(&tid,engine,rid.Identity)
+	   }  
+	   return nil
+	}
+	return nil
+}
+
+type tmpGIdentity struct {
+	Identity string
+}
+func getGidTidRidData(tid *datastruct.ThirdPartyId,engine *xorm.Engine,r_name string)*datastruct.PostGidTidRidBody{
 	   rs:=new(datastruct.PostGidTidRidBody)
 	   rs.Tid = tid.Identity
 	   var identitys []tmpGIdentity
-	   sql="select game_id.identity from game_id join third_party_id_1_n_game_id on third_party_id_1_n_game_id.g_id = game_id.id where t_id="+fmt.Sprintf("%d",tid.Id)
+	   sql:="select game_id.identity from game_id join third_party_id_1_n_game_id on third_party_id_1_n_game_id.g_id = game_id.id where t_id="+fmt.Sprintf("%d",tid.Id)
 	   engine.Sql(sql).Find(&identitys)
 	   gids:=make([]string,0,len(identitys))
 	   for _,v :=range gids {
 		 gids = append(gids,v)
 	   }
 	   rs.Gids = gids
-
-	   var rid tmpRId
-	   sql="select r_id from referrer join third_party_id_1_1_referrer_id on third_party_id_1_1_referrer_id.r_id = referrer.id where t_id="+fmt.Sprintf("%d",tid.Id)
-	   has_rid, _:=engine.Sql(sql).Get(&rid)
-	   if has_rid{
-		 var r_data datastruct.Referrer
-		 engine.Where("id=?",rid.RId).Get(&r_data)
-		 rs.Rid = r_data.Identity
+       if r_name == datastruct.NULLSTRING{
+		  var referrer_data datastruct.Referrer
+		  sql="select referrer.id,referrer.identity from referrer join third_party_id_1_1_referrer_id on third_party_id_1_1_referrer_id.r_id = referrer.id where t_id="+fmt.Sprintf("%d",tid.Id)
+		  has, _:=engine.Sql(sql).Get(&referrer_data)
+		  if has { 
+		    rs.Rid = referrer_data.Identity
+		  }
+	   }else{
+		   rs.Rid = r_name
 	   }
 	   return rs
-	}
-	return nil
 }
