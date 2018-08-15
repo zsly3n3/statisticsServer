@@ -11,7 +11,7 @@ import (
 const DB_IP = "14.29.123.151:3306"
 const DB_Name = "statistics"
 const DB_UserName = "root"
-const DB_Pwd = "Zsly2018!"
+const DB_Pwd = "zsly3n@S"
 
 type DBHandler struct {
 	 dbEngine *xorm.Engine
