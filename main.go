@@ -122,5 +122,5 @@ func isNULLError(code datastruct.CodeType)bool{
 func main() {
 	r := setupRouter()
 	dbHandler = db.CreateDBHandler()
-	r.Run("0.0.0.0:8181")
+	r.Run("127.0.0.1:8181")
 }
