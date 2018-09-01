@@ -325,19 +325,49 @@ func getGidTidRidData(tid *datastruct.ThirdPartyId,engine *xorm.Engine,r_name st
 	   sql:="select game_id.identity from game_id join third_party_id_1_n_game_id on third_party_id_1_n_game_id.g_id = game_id.id where t_id="+fmt.Sprintf("%d",tid.Id)
 	   engine.Sql(sql).Find(&identitys)
 	   gids:=make([]string,0,len(identitys))
-	   for _,v :=range gids {
-		 gids = append(gids,v)
+	   for _,v :=range identitys {
+		 gids = append(gids,v.Identity)
 	   }
 	   rs.Gids = gids
        if r_name == datastruct.NULLSTRING{
 		  var referrer_data datastruct.Referrer
 		  sql="select referrer.id,referrer.identity from referrer join third_party_id_1_1_referrer_id on third_party_id_1_1_referrer_id.r_id = referrer.id where t_id="+fmt.Sprintf("%d",tid.Id)
 		  has, _:=engine.Sql(sql).Get(&referrer_data)
-		  if has { 
+		  if has {
 		    rs.Rid = referrer_data.Identity
 		  }
 	   }else{
 		   rs.Rid = r_name
 	   }
 	   return rs
+}
+
+func (handler *DBHandler)GetTR(name string)*datastruct.PostTidRidBody{
+	engine:=handler.dbEngine
+	var gid datastruct.GameId
+	has, _:= engine.Where("identity=?",name).Get(&gid)
+	if has{
+	   sql:="select third_party_id.id,third_party_id.identity from game_id join third_party_id_1_n_game_id on third_party_id_1_n_game_id.g_id = game_id.id join third_party_id on third_party_id_1_n_game_id.t_id = third_party_id.id where game_id.id="+fmt.Sprintf("%d",gid.Id)
+	   var tid datastruct.ThirdPartyId
+	   has_tid,_:=engine.Sql(sql).Get(&tid)
+	   if has_tid{
+		  return getTidRidData(&tid,engine)
+	   }
+	   return nil
+	}
+	return nil
+}
+
+func getTidRidData(tid *datastruct.ThirdPartyId,engine *xorm.Engine)*datastruct.PostTidRidBody{
+	rs:=new(datastruct.PostTidRidBody)
+	rs.Tid = tid.Identity
+	rs.Tid_id = tid.Id
+	var referrer_data datastruct.Referrer
+	sql:="select referrer.id,referrer.identity from referrer join third_party_id_1_1_referrer_id on third_party_id_1_1_referrer_id.r_id = referrer.id where t_id="+fmt.Sprintf("%d",tid.Id)
+	has, _:=engine.Sql(sql).Get(&referrer_data)
+	if has {
+		 rs.Rid = referrer_data.Identity
+		 rs.Rid_id = referrer_data.Id
+	}
+	return rs
 }

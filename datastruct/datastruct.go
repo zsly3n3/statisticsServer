@@ -76,6 +76,17 @@ type PostGidTidRidBody struct {
 	Gids []string `json:"gids"`
 }
 
+type PostGidBody struct {
+	Gids []string `json:"gids"`
+}
+
+type PostTidRidBody struct {
+	Tid string `json:"tid"`
+	Tid_id int `json:"tid_id"`
+	Rid string `json:"rid"`
+	Rid_id int `json:"rid_id"`
+}
+
 type LoginBody struct {
 	LoginName string `json:"name"`
 	Pwd string `json:"pwd"`

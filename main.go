@@ -17,9 +17,7 @@ func Cors() gin.HandlerFunc {
 }
 func setupRouter() *gin.Engine {
 	r := gin.Default()
-
 	r.Use(Cors())
-
 	r.GET("/getleague", func(c *gin.Context) {
 		c.JSON(200,dbHandler.GetLeague())
 	})
@@ -84,6 +82,30 @@ func setupRouter() *gin.Engine {
 			"data":rs,
 		})
 	})
+
+	r.GET("/getTRWithGName/:name", func(c *gin.Context) {
+		g_name := c.Params.ByName("name")
+		rs:=dbHandler.GetTR(g_name)
+		c.JSON(200, gin.H{
+			"data":rs,
+		})
+	})
+
+	r.POST("/getTRWithGNames", func(c *gin.Context) {
+		var body datastruct.PostGidBody
+		err:=c.BindJSON(&body)
+		rs:=make([]*datastruct.PostTidRidBody,0,len(body.Gids))
+		if err==nil{
+		   for _,v := range body.Gids{
+			   tmp:=dbHandler.GetTR(v)
+			   rs=append(rs,tmp)
+		   }
+		}
+	    c.JSON(200, gin.H{
+			"data":rs,
+	    })
+	})
+
 	return r
 }
 
