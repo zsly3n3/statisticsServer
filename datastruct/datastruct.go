@@ -17,6 +17,7 @@ const (
 	DBSessionExecError//xorm事务中Exec方法执行出错
 	DBSessionInsertError//xorm事务中Insert方法执行出错
 	DBSessionCommitError//xorm事务中Commit方法执行出错
+	DBSessionUpdateError//xorm事务中Update方法执行出错
 )
 
 type Role struct {
@@ -70,10 +71,22 @@ type ThirdPartyId_1_1_referrerId struct {
 	RId int   `xorm:"INT(11) not null"`
 }
 
+/*玩家账号与利率,一对一关系*/
+type ThirdPartyId_1_1_accrual struct {
+	Id  int   `xorm:"not null pk autoincr INT(11)"`
+	TId int   `xorm:"INT(11) not null"`
+	Csl float64  `xorm:"Numeric not null"`
+	Bxfl float64   `xorm:"Numeric not null"`
+	Tjrfbxl float64  `xorm:"Numeric"`
+}
+
 type PostGidTidRidBody struct {
 	Tid string `json:"tid"`
 	Rid string `json:"rid"`
 	Gids []string `json:"gids"`
+	Csl float64 `json:"csl"`//抽水率
+	Bxfl float64 `json:"bxfl"`//保险返率
+	Tjrfbxl float64 `json:"tjrfbxl"`//推荐人返保险返率
 }
 
 type PostGidBody struct {
@@ -85,6 +98,9 @@ type PostTidRidBody struct {
 	Tid_id int `json:"tid_id"`
 	Rid string `json:"rid"`
 	Rid_id int `json:"rid_id"`
+	Csl float64 `json:"csl"`//抽水率
+	Bxfl float64 `json:"bxfl"`//保险返率
+	Tjrfbxl float64 `json:"tjrfbxl"`//推荐人返保险返率
 }
 
 type LoginBody struct {

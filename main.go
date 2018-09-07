@@ -50,7 +50,7 @@ func setupRouter() *gin.Engine {
 		err:=c.BindJSON(&body)
 		code:=datastruct.NULLError
 		if err==nil{
-			code=dbHandler.InsertGidData(body.Gids,body.Tid,body.Rid)
+			code=dbHandler.InsertGidData(&body)
 		}else{
 			code=datastruct.JsonParseFailedFromPostBody
 		}

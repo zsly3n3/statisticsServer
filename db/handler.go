@@ -49,9 +49,10 @@ func resetDB(engine *xorm.Engine){
 	referrer:=&datastruct.Referrer{}
 	tg:=&datastruct.ThirdPartyId_1_n_gameId{}
 	tr:=&datastruct.ThirdPartyId_1_1_referrerId{}
-	err:=engine.DropTables(login,league,role,gameId,thirdPartyId,referrer,tg,tr)
+	ta:=&datastruct.ThirdPartyId_1_1_accrual{} 
+	err:=engine.DropTables(login,league,role,gameId,thirdPartyId,referrer,tg,tr,ta)
     errhandle(err)
-	err=engine.CreateTables(login,league,role,gameId,thirdPartyId,referrer,tg,tr)
+	err=engine.CreateTables(login,league,role,gameId,thirdPartyId,referrer,tg,tr,ta)
     errhandle(err)
 }
 
@@ -83,13 +84,13 @@ func getLevelID(engine *xorm.Engine,roles []datastruct.Role)(int,int){
 
 func createLeagueData()[]datastruct.League{
 	a:= datastruct.League{
-		Name:"a",
+		Name:"A",
 	}
 	b:= datastruct.League{
-		Name:"b",
+		Name:"B",
 	}
 	c:= datastruct.League{
-		Name:"c",
+		Name:"C",
 	}
 	return []datastruct.League{a,b,c}
 }
@@ -148,7 +149,13 @@ func (handler *DBHandler)Login(name string,pwd string)(datastruct.CodeType,int){
 	return code,level
 }
 
-func (handler *DBHandler)InsertGidData(gids []string,tid string,rid string)datastruct.CodeType{
+func (handler *DBHandler)InsertGidData(body *datastruct.PostGidTidRidBody)datastruct.CodeType{
+	gids:=body.Gids
+	tid:=body.Tid
+	rid:=body.Rid
+	csl:=body.Csl
+	bxfl:=body.Bxfl
+	tjrfbxl:=body.Tjrfbxl
 	code:= datastruct.NULLError
 	if len(gids) <= 0 || tid == datastruct.NULLSTRING{
 	   code = datastruct.ParamError
@@ -159,7 +166,7 @@ func (handler *DBHandler)InsertGidData(gids []string,tid string,rid string)datas
 		session.Begin()
 		tid_id:=datastruct.NULLID
 		rid_id:=datastruct.NULLID
-
+        var sql string
 			var tmp_tid datastruct.ThirdPartyId
 			tmp_tid.Identity = tid
 			has, err:= session.Where("identity=?",tid).Get(&tmp_tid)
@@ -177,22 +184,21 @@ func (handler *DBHandler)InsertGidData(gids []string,tid string,rid string)datas
 			tid_id = tmp_tid.Id
 			tid_id_str:=fmt.Sprintf("%d",tid_id)
 		    if tid_id != datastruct.NULLID{
-		      sql:="delete from third_party_id_1_n_game_id where t_id ="+tid_id_str
+		      sql="delete from third_party_id_1_n_game_id where t_id ="+tid_id_str
 		      _,err = session.Exec(sql)
 		      if err != nil{
 				rollback(err.Error(),session)
 			    return datastruct.DBSessionExecError
-		      }
-			}
-		    if rid_id != datastruct.NULLID{
-			   sql:="delete from third_party_id_1_1_referrer_id where t_id ="+tid_id_str
-			   _,err = session.Exec(sql)
-			   if err != nil{
-				 rollback(err.Error(),session)
-			     return datastruct.DBSessionExecError
-			   }
-			}
+			  }
 
+			  sql="delete from third_party_id_1_1_referrer_id where t_id ="+tid_id_str
+			  _,err = session.Exec(sql)
+			  if err != nil{
+				rollback(err.Error(),session)
+				return datastruct.DBSessionExecError
+			  }
+			}
+ 
 		if rid != datastruct.NULLSTRING{
 			var tmp_rid datastruct.Referrer
 			tmp_rid.Identity = rid
@@ -217,8 +223,31 @@ func (handler *DBHandler)InsertGidData(gids []string,tid string,rid string)datas
 		        if err != nil{
 			      rollback(err.Error(),session)
 			      return datastruct.DBSessionInsertError
-		        }
+				}
 	        }
+		}
+		var t_1_1_a datastruct.ThirdPartyId_1_1_accrual
+		has, err= session.Where("t_id=?",tid_id).Get(&t_1_1_a)
+		if err != nil{
+		  rollback(err.Error(),session)
+		  return datastruct.DBSessionGetError 
+		}
+		t_1_1_a.TId = tid_id
+		t_1_1_a.Csl = csl
+		t_1_1_a.Bxfl = bxfl
+		t_1_1_a.Tjrfbxl = tjrfbxl
+		if !has{
+			_, err = session.Insert(&t_1_1_a) 
+			if err != nil{
+				rollback(err.Error(),session)
+				return datastruct.DBSessionInsertError
+			}
+		}else{
+			_, err = session.Where("t_id=?",tid_id).Update(&t_1_1_a)
+			if err != nil{
+				rollback(err.Error(),session)
+				return datastruct.DBSessionUpdateError
+			}
 		}
 		for _,v:=range gids{
 			code = insertGid(v,tid_id,rid_id,session)
@@ -339,6 +368,11 @@ func getGidTidRidData(tid *datastruct.ThirdPartyId,engine *xorm.Engine,r_name st
 	   }else{
 		   rs.Rid = r_name
 	   }
+	   var t_1_1_a datastruct.ThirdPartyId_1_1_accrual
+	   engine.Where("t_id=?",tid.Id).Get(&t_1_1_a)
+	   rs.Csl = t_1_1_a.Csl
+	   rs.Bxfl = t_1_1_a.Bxfl
+	   rs.Tjrfbxl = t_1_1_a.Tjrfbxl
 	   return rs
 }
 
@@ -369,5 +403,10 @@ func getTidRidData(tid *datastruct.ThirdPartyId,engine *xorm.Engine)*datastruct.
 		 rs.Rid = referrer_data.Identity
 		 rs.Rid_id = referrer_data.Id
 	}
+	var t_1_1_a datastruct.ThirdPartyId_1_1_accrual
+	engine.Where("t_id=?",tid.Id).Get(&t_1_1_a)
+	rs.Csl = t_1_1_a.Csl
+	rs.Bxfl = t_1_1_a.Bxfl
+	rs.Tjrfbxl = t_1_1_a.Tjrfbxl
 	return rs
 }
